@@ -1,1 +1,65 @@
 @import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-[#FBFBFC] text-[#1A1C1E] antialiased;
+  }
+  
+  ::selection {
+    @apply bg-emerald-100 text-emerald-900;
+  }
+}
+
+@layer components {
+  /* Основные компоненты */
+  .btn-primary {
+    @apply px-6 py-3 bg-[#0F172A] text-white font-bold rounded-2xl transition-all hover:bg-slate-800 hover:shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-white text-[#0F172A] font-bold rounded-2xl border border-slate-200 transition-all hover:bg-slate-50 active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .btn-emerald {
+    @apply px-6 py-3 bg-emerald-500 text-white font-bold rounded-2xl transition-all hover:bg-emerald-600 hover:shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+  }
+
+  .input-field {
+    @apply w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm placeholder:text-slate-300;
+  }
+
+  .card-premium {
+    @apply bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50;
+  }
+
+  .heading-xl {
+    @apply text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] text-[#0F172A];
+  }
+
+  .heading-lg {
+    @apply text-3xl md:text-4xl font-black tracking-tighter text-[#0F172A] leading-tight;
+  }
+
+  .badge-emerald {
+    @apply px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-[0.15em] rounded-full;
+  }
+
+  /* Исправление: напрямую задаем стили для старых классов, не используя @apply к кастомным классам */
+  .button--primary { 
+    @apply px-6 py-3 bg-[#0F172A] text-white font-bold rounded-2xl transition-all hover:bg-slate-800 hover:shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+  }
+  
+  .button--secondary { 
+    @apply px-6 py-3 bg-white text-[#0F172A] font-bold rounded-2xl border border-slate-200 transition-all hover:bg-slate-50 active:scale-95 flex items-center justify-center gap-2;
+  }
+  
+  .form-input { 
+    @apply w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm placeholder:text-slate-300;
+  }
+}
+
+/* Скроллбар */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }

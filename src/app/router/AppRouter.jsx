@@ -43,7 +43,7 @@ export function AppRouter() {
       </Route>
 
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        <Route path="dashboard" element={<RoleGuard allowedRoles={[ROLES.AUTHOR]}><AuthorDashboardPage /></RoleGuard>} />
+        <Route path="author/dashboard" element={<RoleGuard allowedRoles={[ROLES.AUTHOR]}><AuthorDashboardPage /></RoleGuard>} />
         <Route path="papers" element={<RoleGuard allowedRoles={[ROLES.AUTHOR]}><PapersPage /></RoleGuard>} />
         <Route path="papers/submit" element={<RoleGuard allowedRoles={[ROLES.AUTHOR]}><SubmitPaperPage /></RoleGuard>} />
         <Route path="papers/:id" element={<RoleGuard allowedRoles={[ROLES.AUTHOR]}><PaperDetailsPage /></RoleGuard>} />
