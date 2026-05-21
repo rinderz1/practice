@@ -1,235 +1,214 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { PAPER_STATUS } from "../../constants/statuses";
+import { papersApi } from "../../services/api/papersApi";
+import { reviewsApi } from "../../services/api/reviewsApi";
 
 function ScoreInput({ label, description, value, onChange }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-medium text-slate-700">{label}</p>
-          <p className="text-xs text-slate-400">{description}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+          <p className="text-xs text-slate-500 font-medium">{description}</p>
         </div>
-        <span className="text-2xl font-bold text-blue-600 w-12 text-center">{value}</span>
+        <span className="text-3xl font-black text-[#0F172A] bg-white w-14 h-14 flex items-center justify-center rounded-xl shadow-sm border border-slate-100">{value}</span>
       </div>
       <input
         type="range"
-        min="1"
+        min="0"
         max="10"
+        step="1"
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="w-full accent-blue-600"
+        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
       />
-      <div className="flex justify-between text-xs text-slate-400 mt-1">
-        <span>1 — Слабо</span>
-        <span>10 — Отлично</span>
+      <div className="flex justify-between mt-2 px-1">
+        <span className="text-[8px] font-black text-slate-300 uppercase">0</span>
+        <span className="text-[8px] font-black text-slate-300 uppercase">5</span>
+        <span className="text-[8px] font-black text-slate-300 uppercase">10</span>
       </div>
     </div>
   );
 }
 
 export default function ReviewSubmissionPage() {
-  const { id } = useParams();
+  const { id: paperId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const articles = JSON.parse(localStorage.getItem("articles")) || [];
-  const paper = articles.find(a => a.id === id);
-
-  const reviews = JSON.parse(localStorage.getItem("reviews")) || [];
-  const existingReview = reviews.find(r => r.paperId === id && r.reviewerId === user?.id);
-
-  const [originalityScore, setOriginalityScore] = useState(existingReview?.originalityScore || 5);
-  const [technicalScore, setTechnicalScore] = useState(existingReview?.technicalScore || 5);
-  const [clarityScore, setClarityScore] = useState(existingReview?.clarityScore || 5);
-  const [overallScore, setOverallScore] = useState(existingReview?.overallScore || 5);
-  const [comments, setComments] = useState(existingReview?.comments || "");
-  const [privateNotes, setPrivateNotes] = useState(existingReview?.privateNotes || "");
-  const [error, setError] = useState("");
+  const [paper, setPaper] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  if (!paper) {
-    return (
-      <div className="text-center py-20">
-        <div className="text-5xl mb-4">📄</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Статья не найдена</h2>
-        <button onClick={() => navigate("/reviewer/dashboard")} className="text-blue-600 hover:underline text-sm">
-          Назад
-        </button>
-      </div>
-    );
+  // Form state
+  const [scores, setScores] = useState({
+    originalityScore: 5,
+    technicalScore: 5,
+    clarityScore: 5,
+    relevanceScore: 5,
+    overallScore: 5
+  });
+  const [comments, setComments] = useState("");
+  const [privateComments, setPrivateComments] = useState("");
+
+  useEffect(() => {
+    if (paperId) loadPaper();
+  }, [paperId]);
+
+  async function loadPaper() {
+    setLoading(true);
+    try {
+      const data = await papersApi.getById(paperId);
+      setPaper(data);
+    } catch (err) {
+      console.error("Failed to load paper", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function handleSubmit(e, isDraft = false) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!isDraft && comments.trim().length < 20) {
-      setError("Комментарий слишком короткий (минимум 20 символов)");
+    if (comments.trim().length < 10) {
+      setError("Пожалуйста, напишите более развернутый комментарий для автора");
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     setError("");
-    await new Promise(r => setTimeout(r, 600));
 
-    const newReview = {
-      id: existingReview?.id || Date.now().toString(),
-      paperId: id,
-      reviewerId: user?.id,
-      reviewerName: user?.fullName || user?.email,
-      originalityScore,
-      technicalScore,
-      clarityScore,
-      overallScore,
-      comments,
-      privateNotes,
-      isSubmitted: !isDraft,
-      submittedAt: !isDraft ? new Date().toLocaleDateString("ru-RU") : null,
-    };
+    try {
+      const reviewData = {
+        paperId: Number(paperId),
+        reviewerId: Number(user?.id),
+        ...scores,
+        comments: comments.trim(),
+        privateComments: privateComments.trim()
+      };
 
-    const updatedReviews = reviews.filter(r => !(r.paperId === id && r.reviewerId === user?.id));
-    updatedReviews.push(newReview);
-    localStorage.setItem("reviews", JSON.stringify(updatedReviews));
-
-    // Обновляем статус статьи если рецензия отправлена
-    if (!isDraft) {
-      const updatedArticles = articles.map(a =>
-        a.id === id ? { ...a, status: PAPER_STATUS.REVIEWED } : a
-      );
-      localStorage.setItem("articles", JSON.stringify(updatedArticles));
+      await reviewsApi.create(reviewData);
+      
+      setMessage("Рецензия отправлена!");
+      setTimeout(() => {
+        navigate("/reviewer/dashboard");
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to submit review", err);
+      setError(err.message || "Не удалось отправить рецензию");
+    } finally {
+      setSubmitting(false);
     }
-
-    setLoading(false);
-    navigate("/reviewer/dashboard");
   }
 
-  return (
-    <div className="max-w-2xl">
-      {/* Назад */}
-      <button
-        onClick={() => navigate(`/reviewer/papers/${id}`)}
-        className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition mb-6"
-      >
-        ← Назад к статье
-      </button>
+  if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Загрузка...</div>;
+  if (!paper) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Статья не найдена</div>;
 
-      {/* Заголовок */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Написать рецензию</h1>
-        <p className="text-slate-500 text-sm mt-1">{paper.title}</p>
+  return (
+    <div className="max-w-4xl mx-auto pb-20">
+      <div className="mb-12">
+        <button onClick={() => navigate(-1)} className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-900 transition-colors mb-6">← Назад</button>
+        <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-tight mb-2">Написать рецензию</h1>
+        <p className="text-slate-500 font-medium text-lg italic">"{paper.title}"</p>
       </div>
 
-      {/* Уже отправлена */}
-      {existingReview?.isSubmitted && (
-        <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-6">
-          <p className="text-green-700 text-sm font-medium">✅ Рецензия уже отправлена — вы можете только просмотреть её</p>
-        </div>
-      )}
-
-      <form className="space-y-6">
-        {/* Оценки */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Оценки</h2>
-          <div className="space-y-4">
-            <ScoreInput
-              label="Оригинальность"
-              description="Насколько работа вносит новый вклад"
-              value={originalityScore}
-              onChange={setOriginalityScore}
+      <form onSubmit={handleSubmit} className="space-y-10">
+        {/* Scores Grid */}
+        <div className="bg-white rounded-[48px] border border-slate-100 p-10 sm:p-12 shadow-sm">
+          <h2 className="text-xl font-black text-[#0F172A] uppercase tracking-tight mb-10">Критерии оценки (0-10)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ScoreInput 
+              label="Оригинальность" 
+              description="Насколько идея статьи является новой и уникальной?"
+              value={scores.originalityScore}
+              onChange={v => setScores(s => ({ ...s, originalityScore: v }))}
             />
-            <ScoreInput
-              label="Техническое качество"
-              description="Корректность методов и результатов"
-              value={technicalScore}
-              onChange={setTechnicalScore}
+            <ScoreInput 
+              label="Техническое качество" 
+              description="Методология, точность данных и корректность выводов."
+              value={scores.technicalScore}
+              onChange={v => setScores(s => ({ ...s, technicalScore: v }))}
             />
-            <ScoreInput
-              label="Ясность изложения"
-              description="Структура, язык и читабельность"
-              value={clarityScore}
-              onChange={setClarityScore}
+            <ScoreInput 
+              label="Ясность изложения" 
+              description="Качество языка, структура и понятность текста."
+              value={scores.clarityScore}
+              onChange={v => setScores(s => ({ ...s, clarityScore: v }))}
             />
-            <ScoreInput
-              label="Общая оценка"
-              description="Итоговая оценка работы"
-              value={overallScore}
-              onChange={setOverallScore}
+            <ScoreInput 
+              label="Соответствие тематике" 
+              description="Насколько работа подходит под профиль конференции?"
+              value={scores.relevanceScore}
+              onChange={v => setScores(s => ({ ...s, relevanceScore: v }))}
             />
-          </div>
-
-          {/* Средний балл */}
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-center">
-            <p className="text-xs text-slate-500">Средний балл</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {((originalityScore + technicalScore + clarityScore + overallScore) / 4).toFixed(1)}
-            </p>
-          </div>
-        </div>
-
-        {/* Комментарии */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="font-semibold text-slate-900 mb-4">Комментарии</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Публичные комментарии <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={comments}
-                onChange={e => setComments(e.target.value)}
-                disabled={existingReview?.isSubmitted}
-                placeholder="Подробные комментарии для автора (минимум 20 символов)"
-                rows={5}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm resize-none disabled:bg-slate-50 disabled:text-slate-400"
-              />
-              <p className="text-xs text-slate-400 mt-1">{comments.length} символов</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Приватные заметки для председателя
-              </label>
-              <textarea
-                value={privateNotes}
-                onChange={e => setPrivateNotes(e.target.value)}
-                disabled={existingReview?.isSubmitted}
-                placeholder="Заметки видны только председателю"
-                rows={3}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm resize-none disabled:bg-slate-50 disabled:text-slate-400"
+            <div className="md:col-span-2 mt-4">
+              <ScoreInput 
+                label="ОБЩАЯ ОЦЕНКА" 
+                description="Ваш итоговый вердикт по данной научной работе."
+                value={scores.overallScore}
+                onChange={v => setScores(s => ({ ...s, overallScore: v }))}
               />
             </div>
           </div>
         </div>
 
-        {/* Ошибка */}
+        {/* Comments Section */}
+        <div className="bg-white rounded-[48px] border border-slate-100 p-10 sm:p-12 shadow-sm space-y-10">
+          <div>
+            <label className="block text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-4 ml-1">Комментарии для автора *</label>
+            <textarea
+              value={comments}
+              onChange={e => setComments(e.target.value)}
+              placeholder="Опишите сильные и слабые стороны, дайте рекомендации по улучшению..."
+              rows={8}
+              className="w-full p-8 bg-slate-50 border border-slate-100 rounded-[32px] text-slate-700 leading-relaxed focus:outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-inner"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 ml-1">Приватные заметки для председателя</label>
+            <textarea
+              value={privateComments}
+              onChange={e => setPrivateComments(e.target.value)}
+              placeholder="Заметки, которые не увидит автор (например, сомнения в этичности)..."
+              rows={4}
+              className="w-full p-8 bg-slate-50 border border-slate-100 rounded-[32px] text-slate-700 leading-relaxed focus:outline-none focus:border-slate-900 focus:bg-white transition-all shadow-inner"
+            />
+          </div>
+        </div>
+
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-lg">
+          <div className="p-6 bg-rose-50 border border-rose-100 text-rose-600 rounded-3xl text-sm font-bold flex items-center gap-4">
+            <span className="w-2 h-2 bg-rose-600 rounded-full animate-pulse"></span>
             {error}
           </div>
         )}
 
-        {/* Кнопки */}
-        {!existingReview?.isSubmitted && (
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={e => handleSubmit(e, false)}
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-60 text-sm"
-            >
-              {loading ? "Отправляем..." : "✅ Отправить рецензию"}
-            </button>
-            <button
-              type="button"
-              onClick={e => handleSubmit(e, true)}
-              disabled={loading}
-              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition text-sm"
-            >
-              💾 Сохранить черновик
-            </button>
-          </div>
-        )}
+        <div className="flex flex-col sm:flex-row items-center gap-6 pt-6">
+          <button 
+            type="submit" 
+            disabled={submitting}
+            className="w-full sm:w-auto h-20 px-16 bg-[#0F172A] text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-emerald-600 transition-all active:scale-95 shadow-2xl shadow-slate-200 disabled:opacity-50"
+          >
+            {submitting ? "Отправка..." : "Отправить рецензию"}
+          </button>
+          <button 
+            type="button"
+            onClick={() => navigate(-1)}
+            className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-rose-500 transition-colors"
+          >
+            Отмена
+          </button>
+        </div>
       </form>
+
+      {message && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 p-8 bg-emerald-500 text-white text-xs font-black uppercase tracking-[0.2em] rounded-3xl shadow-2xl shadow-emerald-500/20 animate-slide-in z-50">
+          {message}
+        </div>
+      )}
     </div>
   );
 }

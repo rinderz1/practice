@@ -20,11 +20,13 @@ import ReviewerDashboardPage from "../../pages/reviewer/ReviewerDashboardPage";
 import ReviewerPaperPage from "../../pages/reviewer/ReviewerPaperPage";
 import ReviewSubmissionPage from "../../pages/reviewer/ReviewSubmissionPage";
 import ChairConferenceDashboardPage from "../../pages/chair/ChairConferenceDashboardPage";
+import ChairmanDashboardPage from "../../pages/chair/ChairmanDashboardPage";
 import ChairPapersPage from "../../pages/chair/ChairPapersPage";
 import ChairPaperDetailsPage from "../../pages/chair/ChairPaperDetailsPage";
 import ChairConferenceSettingsPage from "../../pages/chair/ChairConferenceSettingsPage";
 import ChairConferenceExportPage from "../../pages/chair/ChairConferenceExportPage";
 import AdminDashboardPage from "../../pages/admin/AdminDashboardPage";
+import AdminPapersPage from "../../pages/admin/AdminPapersPage";
 import UsersManagementPage from "../../pages/admin/UsersManagementPage";
 import CreateConferencePage from "../../pages/admin/CreateConferencePage";
 import AssignChairPage from "../../pages/admin/AssignChairPage";
@@ -55,6 +57,7 @@ export function AppRouter() {
         <Route path="reviewer/papers/:id" element={<RoleGuard allowedRoles={[ROLES.REVIEWER]}><ReviewerPaperPage /></RoleGuard>} />
         <Route path="reviewer/papers/:id/review" element={<RoleGuard allowedRoles={[ROLES.REVIEWER]}><ReviewSubmissionPage /></RoleGuard>} />
 
+        <Route path="chair/dashboard" element={<RoleGuard allowedRoles={[ROLES.CHAIR]}><ChairmanDashboardPage /></RoleGuard>} />
         <Route path="chair/conferences/:id" element={<RoleGuard allowedRoles={[ROLES.CHAIR]}><ChairConferenceDashboardPage /></RoleGuard>} />
         <Route path="chair/conferences/:id/papers" element={<RoleGuard allowedRoles={[ROLES.CHAIR]}><ChairPapersPage /></RoleGuard>} />
         <Route path="chair/papers/:id" element={<RoleGuard allowedRoles={[ROLES.CHAIR]}><ChairPaperDetailsPage /></RoleGuard>} />
@@ -62,6 +65,7 @@ export function AppRouter() {
         <Route path="chair/conferences/:id/export" element={<RoleGuard allowedRoles={[ROLES.CHAIR]}><ChairConferenceExportPage /></RoleGuard>} />
 
         <Route path="admin/dashboard" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminDashboardPage /></RoleGuard>} />
+        <Route path="admin/papers" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminPapersPage /></RoleGuard>} />
         <Route path="admin/users" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><UsersManagementPage /></RoleGuard>} />
         <Route path="admin/conferences/create" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><CreateConferencePage /></RoleGuard>} />
         <Route path="admin/conferences/:id/chairs" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AssignChairPage /></RoleGuard>} />

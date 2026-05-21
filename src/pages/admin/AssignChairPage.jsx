@@ -1,147 +1,198 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ROLES } from "../../constants/roles";
+import { addNotification } from "../../helpers/notifications";
+import { conferencesApi } from "../../services/api/conferencesApi";
+import { usersApi } from "../../services/api/usersApi";
 
 export default function AssignChairPage() {
-  const { id } = useParams();
+  const { id: conferenceId } = useParams();
   const navigate = useNavigate();
+  
+  const [conference, setConference] = useState(null);
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUsers(JSON.parse(localStorage.getItem("conference_cms_users")) || []);
-  }, []);
+    loadData();
+  }, [conferenceId]);
 
-  function handleAssign(userId) {
-    const updated = users.map(u =>
-      u.id === userId
-        ? { ...u, roles: [...new Set([...(u.roles || []), "chair"])] }
-        : u
-    );
-    localStorage.setItem("conference_cms_users", JSON.stringify(updated));
-    setUsers(updated);
-    setMessage("Пользователь назначен председателем!");
-    setTimeout(() => setMessage(""), 3000);
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [confData, usersData] = await Promise.all([
+        conferencesApi.getById(conferenceId),
+        usersApi.getAll()
+      ]);
+      setConference(confData);
+      setUsers(usersData);
+    } catch (err) {
+      console.error("Failed to load data", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleRemove(userId) {
-    const updated = users.map(u =>
-      u.id === userId
-        ? { ...u, roles: (u.roles || []).filter(r => r !== "chair") }
-        : u
-    );
-    localStorage.setItem("conference_cms_users", JSON.stringify(updated));
-    setUsers(updated);
-    setMessage("Роль председателя снята");
-    setTimeout(() => setMessage(""), 3000);
+  if (loading) return <div className="p-20 text-center">Загрузка...</div>;
+  if (!conference) return <div className="p-20 text-center">Конференция не найдена</div>;
+
+  const potentialChairmen = users.filter(u => u.systemRole === "chair" || (u.roles && u.roles.includes("chair")));
+  const potentialReviewers = users.filter(u => u.systemRole === "reviewer" || (u.roles && u.roles.includes("reviewer")));
+
+  async function updateConference(updates) {
+    try {
+      const updated = await conferencesApi.update(conferenceId, { ...conference, ...updates });
+      setConference(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to update conference", err);
+      setMessage("Ошибка при обновлении");
+      setTimeout(() => setMessage(""), 3000);
+      throw err;
+    }
   }
 
-  const filtered = users.filter(u =>
-    !u.roles?.includes("admin") &&
-    (
-      (u.fullName || "").toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  async function handleAssignChair(user) {
+    try {
+      // Backend expects conferenceChairs as a list of users
+      await updateConference({ 
+        conferenceChairs: [{ id: user.id, fullName: user.fullName, email: user.email }]
+      });
+      // addNotification(user.id, `Вы назначены председателем конференции: ${conference.title}`, "info");
+      setMessage(`Председатель ${user.fullName} назначен!`);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {}
+  }
 
-  const chairs = filtered.filter(u => u.roles?.includes("chair"));
-  const others = filtered.filter(u => !u.roles?.includes("chair"));
+  async function handleToggleReviewer(userId) {
+    const currentIds = (conference.reviewerIds || []).map(id => typeof id === 'object' ? id.id : id);
+    let updatedIds;
+    let action = "";
+
+    if (currentIds.includes(userId)) {
+      updatedIds = currentIds.filter(id => id !== userId);
+      action = "удален из списка";
+    } else {
+      updatedIds = [...currentIds, userId];
+      action = "добавлен в список";
+      // addNotification(userId, `Вы назначены рецензентом на конференцию: ${conference.title}`, "info");
+    }
+
+    try {
+      await updateConference({ reviewerIds: updatedIds });
+      setMessage(`Рецензент успешно ${action}`);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {}
+  }
+
+  // Helper to check if a user is a chair
+  const currentChairId = conference.conferenceChairs?.[0]?.user?.id || conference.conferenceChairs?.[0]?.id || conference.chairmanId;
+  const currentChairName = conference.conferenceChairs?.[0]?.user?.fullName || conference.conferenceChairs?.[0]?.fullName || conference.chairmanName;
+  const currentChairEmail = conference.conferenceChairs?.[0]?.user?.email || conference.conferenceChairs?.[0]?.email || conference.chairmanEmail;
 
   return (
-    <div className="max-w-2xl">
-      {/* Заголовок */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Назначить председателя</h1>
-          <p className="text-slate-500 mt-1 text-sm">Конференция #{id}</p>
+    <div className="max-w-6xl">
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+           <button onClick={() => navigate("/admin/dashboard")} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-900 hover:text-white transition-all">←</button>
+           <div>
+              <h1 className="heading-lg mb-1">Управление командой</h1>
+              <p className="text-slate-500 font-medium text-sm">{conference.title}</p>
+           </div>
         </div>
-        <button
-          onClick={() => navigate("/admin/dashboard")}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition"
-        >
-          ← Назад
-        </button>
       </div>
 
-      {/* Сообщение */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* Председатель */}
+        <div className="space-y-8">
+           <div className="flex items-center gap-3">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Председатель (Chairman)</h2>
+              <div className="h-px flex-1 bg-slate-100"></div>
+           </div>
+
+           <div className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Текущий выбор:</p>
+              <div className="flex items-center gap-4 p-6 bg-[#0F172A] rounded-[32px] text-white shadow-xl shadow-slate-200 mb-10">
+                 <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-xl">
+                    {currentChairName?.[0] || "?"}
+                 </div>
+                 <div>
+                    <p className="font-black text-lg leading-tight">{currentChairName || "Не назначен"}</p>
+                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{currentChairEmail || "выберите из списка ниже"}</p>
+                 </div>
+              </div>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                 {potentialChairmen.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleAssignChair(u)}
+                      className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all ${
+                        currentChairId == u.id 
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700" 
+                          : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-lg"
+                      }`}
+                    >
+                      <div className="text-left">
+                         <p className="text-sm font-black tracking-tight">{u.fullName}</p>
+                         <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">{u.email}</p>
+                      </div>
+                      {currentChairId == u.id && <span className="text-emerald-500 font-black">✓</span>}
+                    </button>
+                 ))}
+              </div>
+           </div>
+        </div>
+
+        {/* Рецензенты */}
+        <div className="space-y-8">
+           <div className="flex items-center gap-3">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Пул Рецензентов (Reviewers)</h2>
+              <div className="h-px flex-1 bg-slate-100"></div>
+           </div>
+
+           <div className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-8">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Назначено: {(conference.reviewerIds || []).length}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 max-h-[550px] overflow-y-auto pr-2">
+                 {potentialReviewers.map(u => {
+                    const isSelected = (conference.reviewerIds || []).some(id => (typeof id === 'object' ? id.id : id) === u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => handleToggleReviewer(u.id)}
+                        className={`w-full flex items-center gap-4 p-5 rounded-2xl border transition-all ${
+                          isSelected 
+                            ? "border-emerald-500 bg-emerald-50 shadow-sm" 
+                            : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200"
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${isSelected ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                           {isSelected ? "✓" : u.fullName?.[0]}
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                           <p className={`text-sm font-black tracking-tight ${isSelected ? 'text-emerald-700' : 'text-slate-900'}`}>{u.fullName}</p>
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{u.email}</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative transition-colors ${isSelected ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isSelected ? 'right-1' : 'left-1'}`}></div>
+                        </div>
+                      </button>
+                    );
+                 })}
+              </div>
+           </div>
+        </div>
+      </div>
+
       {message && (
-        <div className="mb-6 px-4 py-3 bg-green-50 border border-green-100 text-green-700 text-sm rounded-lg">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 p-6 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-3xl shadow-2xl animate-slide-in z-50">
           {message}
         </div>
       )}
-
-      {/* Поиск */}
-      <div className="mb-6">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="🔍  Поиск по имени или email..."
-          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
-        />
-      </div>
-
-      {/* Текущие председатели */}
-      {chairs.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-4">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">Текущие председатели</h2>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {chairs.map(user => (
-              <div key={user.id} className="flex items-center gap-4 px-6 py-4">
-                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold shrink-0">
-                  {(user.fullName || user.email)[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{user.fullName || "—"}</p>
-                  <p className="text-xs text-slate-400">{user.email}</p>
-                </div>
-                <span className="px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-full font-semibold">
-                  Председатель
-                </span>
-                <button
-                  onClick={() => handleRemove(user.id)}
-                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition"
-                >
-                  Снять
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Остальные пользователи */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-900">Пользователи</h2>
-        </div>
-        {others.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-sm">Пользователи не найдены</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {others.map(user => (
-              <div key={user.id} className="flex items-center gap-4 px-6 py-4">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
-                  {(user.fullName || user.email)[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{user.fullName || "—"}</p>
-                  <p className="text-xs text-slate-400">{user.email}</p>
-                  <p className="text-xs text-slate-400">{user.roles?.join(", ")}</p>
-                </div>
-                <button
-                  onClick={() => handleAssign(user.id)}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition"
-                >
-                  + Назначить
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

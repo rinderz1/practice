@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const API_BASE_URL = "http://localhost:8080/api";
 
 async function handleResponse(response) {
   const contentType = response.headers.get("content-type");
@@ -27,7 +27,6 @@ async function request(path, options = {}) {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
-    credentials: "include",
     ...options,
   });
   return handleResponse(response);
@@ -37,5 +36,6 @@ export const apiClient = {
   get: (path) => request(path, { method: "GET" }),
   post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
   put: (path, body) => request(path, { method: "PUT", body: JSON.stringify(body) }),
+  patch: (path, body) => request(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: (path) => request(path, { method: "DELETE" }),
 };

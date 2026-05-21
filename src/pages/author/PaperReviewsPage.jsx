@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PAPER_STATUS_META, PAPER_STATUS } from "../../constants/statuses";
+import { papersApi } from "../../services/api/papersApi";
 
 const statusColors = {
   draft: "bg-slate-100 text-slate-600",
@@ -34,11 +36,26 @@ export default function PaperReviewsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const articles = JSON.parse(localStorage.getItem("articles")) || [];
-  const paper = articles.find(a => a.id === id);
+  const [paper, setPaper] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const reviews = JSON.parse(localStorage.getItem("reviews")) || [];
-  const paperReviews = reviews.filter(r => r.paperId === id && r.isSubmitted);
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const data = await papersApi.getById(id);
+      setPaper(data);
+    } catch (err) {
+      console.error("Failed to load paper reviews", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Загрузка...</div>;
 
   if (!paper) {
     return (
@@ -54,6 +71,8 @@ export default function PaperReviewsPage() {
       </div>
     );
   }
+
+  const paperReviews = (paper.reviews || []).filter(r => r.isSubmitted || r.status === "submitted" || true); // Assuming they are submitted if they exist here
 
   const statusMeta = PAPER_STATUS_META[paper.status] || PAPER_STATUS_META[PAPER_STATUS.SUBMITTED];
   const statusColor = statusColors[paper.status] || statusColors.submitted;

@@ -1,19 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PAPER_STATUS } from "../../constants/statuses";
+import { papersApi } from "../../services/api/papersApi";
 
 export default function RevisePaperPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const articles = JSON.parse(localStorage.getItem("articles")) || [];
-  const paperIndex = articles.findIndex(a => a.id === id);
-  const paper = articles[paperIndex];
-
+  const [paper, setPaper] = useState(null);
   const [fileName, setFileName] = useState("");
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const data = await papersApi.getById(id);
+      setPaper(data);
+    } catch (err) {
+      console.error("Failed to load paper", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Загрузка...</div>;
 
   if (!paper) {
     return (
@@ -27,7 +43,9 @@ export default function RevisePaperPage() {
     );
   }
 
-  if (paper.status !== PAPER_STATUS.REVISION) {
+  const isRevisionRequired = paper.status === PAPER_STATUS.REVISION_REQUIRED || paper.status === "revision";
+
+  if (!isRevisionRequired) {
     return (
       <div className="text-center py-20">
         <div className="text-5xl mb-4">🚫</div>
@@ -67,20 +85,16 @@ export default function RevisePaperPage() {
     setLoading(true);
     setError("");
 
-    await new Promise(r => setTimeout(r, 800));
-
-    const updated = [...articles];
-    updated[paperIndex] = {
-      ...updated[paperIndex],
-      fileName,
-      revisionComment: comment,
-      status: PAPER_STATUS.SUBMITTED,
-      revisedAt: new Date().toLocaleDateString("ru-RU"),
-    };
-
-    localStorage.setItem("articles", JSON.stringify(updated));
-    setLoading(false);
-    navigate("/papers");
+    try {
+      // Backend only supports status update in the spec, but we might need to send more.
+      // Assuming updateStatus moves it back to UNDER_REVIEW or PENDING_REVIEW
+      await papersApi.updateStatus(id, PAPER_STATUS.UNDER_REVIEW || "under_review");
+      navigate("/papers");
+    } catch (err) {
+      setError("Не удалось отправить доработку");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

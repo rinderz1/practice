@@ -1,151 +1,109 @@
 import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { PAPER_STATUS, PAPER_STATUS_META } from "../../constants/statuses";
+import { papersApi } from "../../services/api/papersApi";
 
 const statusColors = {
-  draft: "bg-slate-100 text-slate-600",
-  submitted: "bg-blue-100 text-blue-600",
-  under_review: "bg-yellow-100 text-yellow-600",
-  reviewed: "bg-purple-100 text-purple-600",
-  accepted: "bg-green-100 text-green-600",
-  rejected: "bg-red-100 text-red-600",
-  revision: "bg-orange-100 text-orange-600",
-  withdrawn: "bg-gray-100 text-gray-500",
+  [PAPER_STATUS.PENDING_REVIEW]: "bg-blue-50 text-blue-600 border-blue-100",
+  [PAPER_STATUS.UNDER_REVIEW]: "bg-amber-50 text-amber-600 border-amber-100",
+  [PAPER_STATUS.REVISION_REQUIRED]: "bg-orange-50 text-orange-600 border-orange-100",
+  [PAPER_STATUS.ACCEPTED]: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  [PAPER_STATUS.REJECTED]: "bg-rose-50 text-rose-600 border-rose-100",
 };
 
-const filterOptions = [
-  { value: "all", label: "Все статьи" },
-  { value: PAPER_STATUS.SUBMITTED, label: "Ожидают" },
-  { value: PAPER_STATUS.UNDER_REVIEW, label: "На рецензии" },
-  { value: PAPER_STATUS.ACCEPTED, label: "Принятые" },
-  { value: PAPER_STATUS.REJECTED, label: "Отклонённые" },
-  { value: PAPER_STATUS.REVISION, label: "Доработка" },
-];
-
 export default function ChairPapersPage() {
+  const { id: conferenceId } = useParams();
+  const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [filter, setFilter] = useState("all");
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setPapers(JSON.parse(localStorage.getItem("articles")) || []);
-  }, []);
+    loadPapers();
+  }, [conferenceId]);
 
-  function savePapers(updated) {
-    localStorage.setItem("articles", JSON.stringify(updated));
-    setPapers(updated);
+  async function loadPapers() {
+    setLoading(true);
+    try {
+      const data = await papersApi.getByConference(conferenceId);
+      setPapers(data);
+    } catch (err) {
+      console.error("Failed to load papers", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleStatusChange(index, newStatus) {
-    const updated = [...papers];
-    updated[index] = { ...updated[index], status: newStatus };
-    savePapers(updated);
-    setMessage(`Статус изменён на "${PAPER_STATUS_META[newStatus]?.label}"`);
-    setTimeout(() => setMessage(""), 3000);
+  async function handleStatusChange(paperId, newStatus) {
+    try {
+      await papersApi.updateStatus(paperId, newStatus);
+      setPapers(prev => prev.map(p => p.id === paperId ? { ...p, status: newStatus } : p));
+    } catch (err) {
+      alert("Ошибка при смене статуса");
+    }
   }
 
-  const filtered = filter === "all"
-    ? papers.map((p, i) => ({ ...p, globalIndex: i }))
-    : papers.map((p, i) => ({ ...p, globalIndex: i })).filter(p => p.status === filter);
+  const filtered = filter === "all" ? papers : papers.filter(p => p.status === filter);
 
   return (
-    <div>
-      {/* Заголовок */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Статьи конференции</h1>
-        <p className="text-slate-500 mt-1 text-sm">Просматривайте заявки и принимайте решения</p>
+    <div className="max-w-6xl">
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+           <button onClick={() => navigate("/chairman/dashboard")} className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-900 hover:text-white transition-all">←</button>
+           <h1 className="heading-lg">Список заявок</h1>
+        </div>
+        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Конференция #{conferenceId}</span>
       </div>
 
-      {/* Сообщение */}
-      {message && (
-        <div className="mb-6 px-4 py-3 bg-green-50 border border-green-100 text-green-700 text-sm rounded-lg">
-          {message}
-        </div>
-      )}
+      {loading && <p className="text-center p-10 text-slate-400 font-bold uppercase text-[10px]">Загрузка...</p>}
 
-      {/* Фильтры */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {filterOptions.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setFilter(opt.value)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === opt.value
-                ? "bg-blue-600 text-white"
-                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {opt.label}
-            {opt.value === "all"
-              ? ` (${papers.length})`
-              : ` (${papers.filter(p => p.status === opt.value).length})`
-            }
-          </button>
-        ))}
-      </div>
+      {!loading && (
+        <>
+          <div className="flex gap-3 mb-10 overflow-x-auto pb-2">
+            {["all", ...Object.values(PAPER_STATUS)].map(s => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  filter === s ? "bg-slate-900 text-white shadow-lg" : "bg-white border border-slate-100 text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                {s === "all" ? "Все" : PAPER_STATUS_META[s]?.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Список статей */}
-      {filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <div className="text-4xl mb-3">📭</div>
-          <p className="text-slate-500 text-sm">Нет статей в этой категории</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((paper) => {
-            const statusMeta = PAPER_STATUS_META[paper.status] || PAPER_STATUS_META[PAPER_STATUS.SUBMITTED];
-            const statusColor = statusColors[paper.status] || statusColors.submitted;
-
-            return (
-              <div key={paper.globalIndex} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 mr-4">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{paper.title}</h3>
-                    <p className="text-slate-500 text-sm line-clamp-2">{paper.abstract}</p>
-                  </div>
-                  <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
-                    {statusMeta.label}
-                  </span>
+          <div className="grid grid-cols-1 gap-6">
+            {filtered.map(paper => {
+              const meta = PAPER_STATUS_META[paper.status] || { label: paper.status };
+              return (
+                <div key={paper.id} className="bg-white rounded-[32px] border border-slate-100 p-8 hover:shadow-xl transition-all group">
+                   <div className="flex items-center justify-between gap-6">
+                      <div className="flex-1 min-w-0">
+                         <div className="flex items-center gap-3 mb-2">
+                            <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${statusColors[paper.status]}`}>
+                               {meta.label}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{paper.createdAt || paper.submittedAt}</span>
+                         </div>
+                         <h3 className="text-lg font-black text-slate-900 truncate tracking-tight">{paper.title}</h3>
+                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Автор ID: {paper.userId || paper.authorId}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                         <Link to={`/chair/papers/${paper.id}`} className="px-6 py-3 bg-slate-50 text-slate-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">
+                           Просмотр
+                         </Link>
+                         <button onClick={() => handleStatusChange(paper.id, PAPER_STATUS.ACCEPTED)} className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all">✓</button>
+                      </div>
+                   </div>
                 </div>
-
-                <div className="flex items-center gap-4 text-xs text-slate-400 mb-5 pb-5 border-b border-slate-100">
-                  <span>👤 {paper.authorName || paper.author}</span>
-                  <span>🏛️ {paper.conferenceName || "—"}</span>
-                  <span>📅 {paper.submittedAt || "—"}</span>
-                  {paper.fileName && <span>📄 {paper.fileName}</span>}
-                </div>
-
-                {/* Смена статуса */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm font-medium text-slate-600">Решение:</span>
-                  <button
-                    onClick={() => handleStatusChange(paper.globalIndex, PAPER_STATUS.UNDER_REVIEW)}
-                    className="px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-lg transition"
-                  >
-                    🔍 На рецензию
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(paper.globalIndex, PAPER_STATUS.ACCEPTED)}
-                    className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg transition"
-                  >
-                    ✅ Принять
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(paper.globalIndex, PAPER_STATUS.REVISION)}
-                    className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold rounded-lg transition"
-                  >
-                    ✏️ Доработка
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(paper.globalIndex, PAPER_STATUS.REJECTED)}
-                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded-lg transition"
-                  >
-                    ❌ Отклонить
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="p-20 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">Ничего не найдено</div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

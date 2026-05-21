@@ -1,27 +1,16 @@
+import { apiClient } from "./apiClient";
+
 const AUTH_STORAGE_KEY = "conference_cms_auth";
-const USER_STORE_KEY = "conference_cms_users";
-
-const DEFAULT_USERS = [
-  {
-    id: "admin-1",
-    fullName: "Администратор",
-    email: "admin@example.com",
-    password: "admin123",
-    roles: ["admin"],
-  },
-];
-
-function seedDefaultUsers() {
-  const users = JSON.parse(localStorage.getItem(USER_STORE_KEY)) || [];
-  const hasAdmin = users.some((user) => user.roles?.includes("admin"));
-
-  if (!hasAdmin) {
-    localStorage.setItem(USER_STORE_KEY, JSON.stringify([...users, ...DEFAULT_USERS]));
-  }
-}
 
 function saveAuthUser(user) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  // Store only the required fields: { id, fullName, email, systemRole }
+  const userData = {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    systemRole: user.systemRole
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
 }
 
 function clearAuthUser() {
@@ -29,55 +18,18 @@ function clearAuthUser() {
 }
 
 export async function login(email, password) {
-  seedDefaultUsers();
-  const users = JSON.parse(localStorage.getItem(USER_STORE_KEY)) || [];
-  seedDefaultUsers();
-  const foundUser = users.find((item) => item.email === email && item.password === password);
-
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  if (!foundUser) {
-    throw new Error("Неверный email или пароль");
-  }
-
-  const authUser = {
-    id: foundUser.id,
-    fullName: foundUser.fullName || foundUser.email,
-    email: foundUser.email,
-    roles: foundUser.roles || ["author"],
-  };
-
-  saveAuthUser(authUser);
-  return authUser;
+  const user = await apiClient.post("/auth/login", { email, password });
+  saveAuthUser(user);
+  return user;
 }
 
 export async function register(payload) {
-  seedDefaultUsers();
-  const users = JSON.parse(localStorage.getItem(USER_STORE_KEY)) || [];
-  const exists = users.some((item) => item.email === payload.email);
-
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  if (exists) {
-    throw new Error("Пользователь с таким email уже существует");
-  }
-
-  const newUser = {
-    id: Date.now().toString(),
-    fullName: payload.fullName || payload.email,
-    email: payload.email,
-    password: payload.password,
-    roles: ["author"],
-  };
-
-  users.push(newUser);
-  localStorage.setItem(USER_STORE_KEY, JSON.stringify(users));
-  const authUser = { id: newUser.id, fullName: newUser.fullName, email: newUser.email, roles: newUser.roles };
-  saveAuthUser(authUser);
-  return authUser;
+  const user = await apiClient.post("/auth/register", payload);
+  saveAuthUser(user);
+  return user;
 }
 
-export function logout() {
+export async function logout() {
   clearAuthUser();
   return Promise.resolve();
 }

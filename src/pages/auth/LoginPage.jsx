@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { ROLES } from "../../constants/roles";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,13 +19,19 @@ export default function LoginPage() {
 
     try {
       const user = await login(email, password);
-      const role = user.roles?.[0];
-      if (role === "admin") navigate("/admin/dashboard");
-      else if (role === "chair") navigate("/chair/conferences/1");
-      else if (role === "reviewer") navigate("/reviewer/dashboard");
-      else navigate("/author/dashboard");
+      const role = user.systemRole;
+      
+      if (role === ROLES.ADMIN) {
+        navigate("/admin/dashboard");
+      } else if (role === ROLES.CHAIR) {
+        navigate("/chair/dashboard");
+      } else if (role === ROLES.REVIEWER) {
+        navigate("/reviewer/dashboard");
+      } else {
+        navigate("/author/dashboard");
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Ошибка авторизации");
     } finally {
       setLoading(false);
     }
@@ -62,7 +69,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 ml-1">Email Адрес</label>
+              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 ml-1">Электронная почта</label>
               <input
                 type="email"
                 value={email}

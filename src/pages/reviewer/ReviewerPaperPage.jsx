@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { PAPER_STATUS_META, PAPER_STATUS } from "../../constants/statuses";
+import { papersApi } from "../../services/api/papersApi";
 
 const statusColors = {
   submitted: "bg-blue-100 text-blue-600",
@@ -15,11 +17,26 @@ export default function ReviewerPaperPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const articles = JSON.parse(localStorage.getItem("articles")) || [];
-  const paper = articles.find(a => a.id === id);
+  const [paper, setPaper] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const reviews = JSON.parse(localStorage.getItem("reviews")) || [];
-  const myReview = reviews.find(r => r.paperId === id && r.reviewerId === user?.id);
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const data = await papersApi.getById(id);
+      setPaper(data);
+    } catch (err) {
+      console.error("Failed to load paper", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Загрузка...</div>;
 
   if (!paper) {
     return (
@@ -36,8 +53,11 @@ export default function ReviewerPaperPage() {
     );
   }
 
-  const statusMeta = PAPER_STATUS_META[paper.status] || PAPER_STATUS_META[PAPER_STATUS.SUBMITTED];
+  const statusMeta = PAPER_STATUS_META[paper.status] || { label: paper.status };
   const statusColor = statusColors[paper.status] || statusColors.submitted;
+
+  // Assuming reviews are part of the paper object from backend
+  const myReview = (paper.reviews || []).find(r => r.reviewerId === user?.id);
 
   return (
     <div className="max-w-3xl">
@@ -77,15 +97,18 @@ export default function ReviewerPaperPage() {
         <div className="space-y-3">
           <div className="flex gap-3">
             <span className="text-sm text-slate-400 w-32 shrink-0">Автор</span>
-            <span className="text-sm text-slate-900">{paper.authorName || paper.author}</span>
+            <span className="text-sm text-slate-900">
+               {/* Data is hidden for reviewers in blind review, but we show what we have */}
+               {paper.authorName || "Анонимный автор"}
+            </span>
           </div>
           <div className="flex gap-3">
             <span className="text-sm text-slate-400 w-32 shrink-0">Конференция</span>
-            <span className="text-sm text-slate-900">{paper.conferenceName || "—"}</span>
+            <span className="text-sm text-slate-900">{paper.conferenceName || `ID: ${paper.conferenceId}`}</span>
           </div>
           <div className="flex gap-3">
             <span className="text-sm text-slate-400 w-32 shrink-0">Дата подачи</span>
-            <span className="text-sm text-slate-900">{paper.submittedAt || "—"}</span>
+            <span className="text-sm text-slate-900">{paper.createdAt || paper.submittedAt || "—"}</span>
           </div>
           {paper.fileName && (
             <div className="flex gap-3">
@@ -99,7 +122,7 @@ export default function ReviewerPaperPage() {
       {/* Аннотация */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Аннотация</h2>
-        <p className="text-sm text-slate-700 leading-relaxed">{paper.abstract || paper.description || "—"}</p>
+        <p className="text-sm text-slate-700 leading-relaxed">{paper.abstractText || paper.abstract || paper.description || "—"}</p>
       </div>
 
       {/* Действия */}

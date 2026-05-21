@@ -3,8 +3,8 @@ import { useAuth } from "../../hooks/useAuth";
 
 export function RoleGuard({ allowedRoles, children }) {
   const { user } = useAuth();
-  const userRoles = user?.roles || [];
-  const hasAccess = allowedRoles.some((role) => userRoles.includes(role));
+  const userRole = user?.systemRole || "";
+  const hasAccess = allowedRoles.includes(userRole);
 
   if (!hasAccess) {
     return <Navigate to="/403" replace />;

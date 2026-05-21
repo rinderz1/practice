@@ -18,7 +18,7 @@ export function Topbar() {
           <div className="w-12 h-12 bg-[#0F172A] rounded-[18px] flex items-center justify-center text-white font-black group-hover:bg-emerald-500 transition-all group-hover:rotate-6 shadow-xl shadow-slate-200">
             P
           </div>
-          <span className="font-black text-[#0F172A] uppercase tracking-tighter text-xl group-hover:text-emerald-600 transition-colors">Portal</span>
+          <span className="font-black text-[#0F172A] uppercase tracking-tighter text-xl group-hover:text-emerald-600 transition-colors">Портал</span>
         </Link>
 
         <div className="flex items-center gap-10">
@@ -28,8 +28,12 @@ export function Topbar() {
                 <p className="text-sm font-black text-[#0F172A] leading-none mb-1 group-hover:text-emerald-600 transition-colors">{user.fullName || user.email}</p>
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">{user.roles?.[0]}</p>
               </div>
-              <div className="w-12 h-12 rounded-[18px] bg-slate-50 flex items-center justify-center text-[#0F172A] font-black border border-slate-100 shadow-sm group-hover:border-emerald-200 transition-colors">
-                {(user.fullName || user.email)[0].toUpperCase()}
+              <div className="w-12 h-12 rounded-[18px] bg-slate-50 flex items-center justify-center text-[#0F172A] font-black border border-slate-100 shadow-sm group-hover:border-emerald-200 transition-colors overflow-hidden">
+                {user.avatar ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (user.fullName || user.email)[0].toUpperCase()
+                )}
               </div>
             </div>
           )}

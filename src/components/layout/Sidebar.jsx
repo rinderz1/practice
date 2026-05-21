@@ -2,31 +2,31 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { ROLES } from "../../constants/roles";
 
-const roleLinks = {
-  [ROLES.AUTHOR]: [
-    { path: "/author/dashboard", label: "Дашборд" },
-    { path: "/papers/submit", label: "Подать статью" },
-    { path: "/papers", label: "Мои работы" },
-    { path: "/profile/edit", label: "Настройки" },
-  ],
-  [ROLES.REVIEWER]: [
-    { path: "/reviewer/dashboard", label: "Назначения" },
-  ],
-  [ROLES.CHAIR]: [
-    { path: "/chair/conferences/1", label: "Управление" },
-    { path: "/chair/conferences/1/papers", label: "Заявки" },
-  ],
-  [ROLES.ADMIN]: [
-    { path: "/admin/dashboard", label: "Система" },
-    { path: "/admin/users", label: "Пользователи" },
-    { path: "/admin/conferences/create", label: "Конференция" },
-  ],
-};
-
 export function Sidebar() {
   const { user } = useAuth();
-  const userRoles = user?.roles || [];
-  const links = userRoles.flatMap((role) => roleLinks[role] || []);
+  const userRole = user?.systemRole || "";
+
+  const roleLinks = {
+    [ROLES.AUTHOR]: [
+      { path: "/author/dashboard", label: "Дашборд" },
+      { path: "/papers/submit", label: "Подать статью" },
+      { path: "/papers", label: "Мои работы" },
+      { path: "/profile/edit", label: "Настройки" },
+    ],
+    [ROLES.REVIEWER]: [
+      { path: "/reviewer/dashboard", label: "Назначения" },
+    ],
+    [ROLES.CHAIR]: [
+      { path: "/chair/dashboard", label: "Управление" },
+    ],
+    [ROLES.ADMIN]: [
+      { path: "/admin/dashboard", label: "Система" },
+      { path: "/admin/users", label: "Пользователи" },
+      { path: "/admin/conferences/create", label: "Конференция" },
+    ],
+  };
+
+  const links = roleLinks[userRole] || [];
 
   return (
     <aside className="w-80 bg-white border-r border-slate-50 min-h-full">

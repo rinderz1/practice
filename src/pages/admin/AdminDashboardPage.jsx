@@ -1,21 +1,59 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PAPER_STATUS_META } from "../../constants/statuses";
+import { usersApi } from "../../services/api/usersApi";
+import { conferencesApi } from "../../services/api/conferencesApi";
+import { papersApi } from "../../services/api/papersApi";
 
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState([]);
   const [papers, setPapers] = useState([]);
+  const [conferences, setConferences] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setUsers(JSON.parse(localStorage.getItem("conference_cms_users")) || []);
-    setPapers(JSON.parse(localStorage.getItem("articles")) || []);
+    loadData();
   }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [usersData, confsData] = await Promise.all([
+        usersApi.getAll(),
+        conferencesApi.getAll()
+      ]);
+      setUsers(usersData);
+      setConferences(confsData);
+      
+      try {
+        const papersData = await papersApi.getAll();
+        setPapers(papersData);
+      } catch (err) {
+        console.warn("Could not fetch global papers list", err);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteConference(id) {
+    if (!window.confirm("Вы уверены что хотите удалить конференцию?")) return;
+    
+    try {
+      await conferencesApi.delete(id);
+      setConferences(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      alert("Не удалось удалить конференцию");
+    }
+  }
 
   const stats = [
     { label: "Пользователи", value: users.length, icon: "👥", color: "indigo" },
-    { label: "Рукописи", value: papers.length, icon: "📄", color: "emerald" },
-    { label: "Авторы", value: users.filter(u => u.roles?.includes("author")).length, icon: "✍️", color: "teal" },
-    { label: "Председатели", value: users.filter(u => u.roles?.includes("chair")).length, icon: "🏛️", color: "amber" },
+    { label: "Конференции", value: conferences.length, icon: "🏛️", color: "emerald" },
+    { label: "Рукописи", value: papers.length, icon: "📄", color: "teal" },
+    { label: "Председатели", value: users.filter(u => u.systemRole === "chair" || (u.roles && u.roles.includes("chair"))).length, icon: "👑", color: "amber" },
   ];
 
   const colorStyles = {
@@ -25,22 +63,20 @@ export default function AdminDashboardPage() {
     amber: "bg-amber-50 text-amber-600 border-amber-100",
   };
 
-  const recentUsers = [...users].slice(-5).reverse();
-
   return (
     <div className="max-w-6xl">
       {/* Заголовок */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-8">
         <div>
-          <h1 className="heading-lg mb-2">Панель управления</h1>
-          <p className="text-slate-500 font-medium">Глобальный обзор платформы и управление ресурсами.</p>
+          <h1 className="heading-lg mb-2">Глобальная панель</h1>
+          <p className="text-slate-500 font-medium">Управление всей экосистемой академических конференций.</p>
         </div>
         <div className="flex gap-4">
           <Link to="/admin/users" className="btn-secondary h-12 text-[10px] uppercase tracking-widest px-6">
             Пользователи
           </Link>
           <Link to="/admin/conferences/create" className="btn-primary h-12 text-[10px] uppercase tracking-widest px-6">
-            + Конференция
+            + Создать событие
           </Link>
         </div>
       </div>
@@ -60,58 +96,65 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Последние пользователи */}
+        {/* Список конференций */}
         <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-10 py-8 border-b border-slate-50">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Новые пользователи</h2>
-            <Link to="/admin/users" className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
-              Смотреть всех →
+            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Конференции</h2>
+            <Link to="/admin/conferences/create" className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
+              Добавить →
             </Link>
           </div>
-          {recentUsers.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 font-medium">Нет данных</div>
+          {conferences.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 font-medium">
+               {loading ? "Загрузка..." : "Нет активных конференций"}
+            </div>
           ) : (
             <div className="divide-y divide-slate-50">
-              {recentUsers.map((user) => (
-                <div key={user.id} className="flex items-center gap-4 px-10 py-5 hover:bg-slate-50/50 transition-colors group">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0F172A] flex items-center justify-center text-white font-black text-sm shadow-xl shadow-slate-200 group-hover:rotate-6 transition-transform">
-                    {(user.fullName || user.email)[0].toUpperCase()}
+              {conferences.map((conf) => (
+                <div key={conf.id} className="flex items-center justify-between px-10 py-5 hover:bg-slate-50/50 transition-colors group">
+                  <div className="flex-1 min-w-0 mr-4">
+                    <p className="text-sm font-black text-slate-900 truncate tracking-tight">{conf.title}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Место: {conf.venue || "—"}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-slate-900 truncate tracking-tight">{user.fullName || user.email}</p>
-                    <p className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-widest">{user.email}</p>
+                  <div className="flex items-center gap-3">
+                    <Link to={`/conferences/${conf.id}`} className="p-2 text-emerald-300 hover:text-emerald-600 transition-colors">👁️</Link>
+                    <button 
+                      onClick={() => handleDeleteConference(conf.id)}
+                      className="p-2 text-rose-300 hover:text-rose-600 transition-colors"
+                      title="Удалить конференцию"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                  <span className="px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full">
-                    {user.roles?.[0] || "—"}
-                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Последние статьи */}
+        {/* Свежие рукописи */}
         <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-10 py-8 border-b border-slate-50">
             <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Свежие рукописи</h2>
-            <Link to="/chair/conferences/1/papers" className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
+            <Link to="/admin/papers" className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
               Все работы →
             </Link>
           </div>
           {papers.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 font-medium">Нет данных</div>
+            <div className="p-12 text-center text-slate-400 font-medium">
+               {loading ? "Загрузка..." : "Нет данных"}
+            </div>
           ) : (
             <div className="divide-y divide-slate-50">
               {[...papers].slice(-5).reverse().map((paper, i) => {
-                const statusMeta = PAPER_STATUS_META[paper.status];
                 return (
                   <div key={i} className="flex items-center justify-between px-10 py-5 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex-1 min-w-0 mr-4">
                       <p className="text-sm font-black text-slate-900 truncate tracking-tight group-hover:text-emerald-600 transition-colors">{paper.title}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{paper.authorName || paper.author}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Автор ID: {paper.userId || paper.authorId}</p>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-100 px-3 py-1 rounded-full group-hover:border-emerald-100 group-hover:text-emerald-600">
-                       {statusMeta?.label || paper.status}
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-100 px-3 py-1 rounded-full">
+                       {PAPER_STATUS_META[paper.status]?.label || paper.status}
                     </span>
                   </div>
                 );

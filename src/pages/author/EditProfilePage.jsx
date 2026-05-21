@@ -6,12 +6,28 @@ export default function EditProfilePage() {
 
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [email] = useState(user?.email || "");
-  const [affiliation, setAffiliation] = useState(user?.affiliation || "");
-  const [orcid, setOrcid] = useState(user?.orcid || "");
-  const [bio, setBio] = useState(user?.bio || "");
+  const [affiliation, setAffiliation] = useState(""); // Not in current API
+  const [orcid, setOrcid] = useState(""); // Not in current API
+  const [bio, setBio] = useState(""); // Not in current API
+  const [avatar, setAvatar] = useState(null); // Not in current API
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function handleAvatarChange(e) {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 1024 * 1024) {
+        setError("Файл слишком большой (макс. 1МБ)");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatar(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -20,24 +36,19 @@ export default function EditProfilePage() {
     setLoading(true);
     setError("");
 
+    // Simulate API delay since we don't have a direct profile update endpoint in spec
     await new Promise(r => setTimeout(r, 600));
 
-    const users = JSON.parse(localStorage.getItem("conference_cms_users")) || [];
-    const updated = users.map(u =>
-      u.id === user.id
-        ? { ...u, fullName: fullName.trim(), affiliation, orcid, bio }
-        : u
-    );
-    localStorage.setItem("conference_cms_users", JSON.stringify(updated));
-
+    // Note: Full profile update is currently restricted by the backend spec
+    // We update the local storage to keep the session updated
     const currentUser = JSON.parse(localStorage.getItem("conference_cms_auth")) || {};
     localStorage.setItem("conference_cms_auth", JSON.stringify({
       ...currentUser,
-      fullName: fullName.trim(),
+      fullName: fullName.trim()
     }));
 
     setLoading(false);
-    setSuccess("Ваш профиль успешно обновлён!");
+    setSuccess("Локальные данные профиля обновлены! (Синхронизация с сервером ожидается)");
     setTimeout(() => setSuccess(""), 3000);
   }
 
@@ -53,20 +64,28 @@ export default function EditProfilePage() {
         {/* Аватар и краткая сводка */}
         <div className="space-y-6">
            <div className="bg-white rounded-[40px] border border-slate-100 p-10 shadow-sm text-center">
-              <div className="relative inline-block mb-8">
-                 <div className="w-24 h-24 rounded-[32px] bg-[#0F172A] flex items-center justify-center text-white font-black text-4xl shadow-2xl shadow-slate-200 mx-auto">
-                    {(fullName || email)[0].toUpperCase()}
-                 </div>
+              <div className="relative inline-block mb-8 group cursor-pointer">
+                 {avatar ? (
+                   <img src={avatar} alt="Avatar" className="w-24 h-24 rounded-[32px] object-cover shadow-2xl shadow-slate-200 mx-auto transition-transform group-hover:scale-105" />
+                 ) : (
+                   <div className="w-24 h-24 rounded-[32px] bg-[#0F172A] flex items-center justify-center text-white font-black text-4xl shadow-2xl shadow-slate-200 mx-auto transition-transform group-hover:scale-105">
+                      {(fullName || email)[0].toUpperCase()}
+                   </div>
+                 )}
+                 <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-[10px] font-black uppercase tracking-widest">
+                    Сменить
+                    <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                 </label>
                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 rounded-2xl border-4 border-white flex items-center justify-center text-white text-xs shadow-lg">
                     ✓
                  </div>
               </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-1 tracking-tighter leading-tight">{fullName || email}</h3>
-              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-8">{user?.roles?.[0]}</p>
+              <h3 className="text-2xl font-black text-slate-900 mb-1 tracking-tighter leading-tight truncate">{fullName || email}</h3>
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-8">{user?.systemRole}</p>
               
               <div className="pt-8 border-t border-slate-50 flex flex-col gap-3">
                  <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ID Аккаунта</div>
-                 <code className="bg-slate-50 py-2 px-4 rounded-xl text-xs font-bold text-slate-400">#{user?.id?.slice(-8)}</code>
+                 <code className="bg-slate-50 py-2 px-4 rounded-xl text-xs font-bold text-slate-400">#{user?.id}</code>
               </div>
            </div>
         </div>

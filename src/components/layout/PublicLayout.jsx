@@ -19,7 +19,7 @@ export function PublicLayout() {
             <div className="w-12 h-12 bg-[#0F172A] rounded-[18px] flex items-center justify-center text-white font-black group-hover:bg-emerald-500 transition-all group-hover:rotate-6 shadow-xl shadow-slate-200">
               P
             </div>
-            <span className="font-black text-[#0F172A] uppercase tracking-tighter text-xl group-hover:text-emerald-600 transition-colors">Portal</span>
+            <span className="font-black text-[#0F172A] uppercase tracking-tighter text-xl group-hover:text-emerald-600 transition-colors">Портал</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-10">
@@ -35,7 +35,12 @@ export function PublicLayout() {
             {isAuthenticated ? (
               <div className="flex items-center gap-6">
                 <Link
-                  to={user?.roles?.[0] === 'admin' ? '/admin/dashboard' : '/author/dashboard'}
+                  to={
+                    user?.systemRole === 'admin' ? '/admin/dashboard' :
+                    user?.systemRole === 'chair' ? '/chair/dashboard' :
+                    user?.systemRole === 'reviewer' ? '/reviewer/dashboard' :
+                    '/author/dashboard'
+                  }
                   className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 hover:text-emerald-700 transition-colors"
                 >
                   Личный кабинет
@@ -78,14 +83,14 @@ export function PublicLayout() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="flex items-center gap-3">
                <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-sm">P</div>
-               <span className="font-black text-slate-900 uppercase tracking-tighter">Academic Portal</span>
+               <span className="font-black text-slate-900 uppercase tracking-tighter">Академический Портал</span>
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
               © 2025 Все права защищены.
             </p>
             <div className="flex gap-8">
-               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors">Privacy</span>
-               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors">Terms</span>
+               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors">Приватность</span>
+               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-pointer hover:text-slate-900 transition-colors">Условия</span>
             </div>
           </div>
         </div>
