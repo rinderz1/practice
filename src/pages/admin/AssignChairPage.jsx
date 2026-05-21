@@ -129,7 +129,7 @@ export default function AssignChairPage() {
                       key={u.id}
                       onClick={() => handleAssignChair(u)}
                       className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all ${
-                        currentChairId == u.id 
+                        currentChairId === u.id 
                           ? "border-emerald-500 bg-emerald-50 text-emerald-700" 
                           : "border-slate-50 bg-slate-50/50 hover:bg-white hover:border-slate-200 hover:shadow-lg"
                       }`}
@@ -138,7 +138,7 @@ export default function AssignChairPage() {
                          <p className="text-sm font-black tracking-tight">{u.fullName}</p>
                          <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">{u.email}</p>
                       </div>
-                      {currentChairId == u.id && <span className="text-emerald-500 font-black">✓</span>}
+                      {currentChairId === u.id && <span className="text-emerald-500 font-black">✓</span>}
                     </button>
                  ))}
               </div>

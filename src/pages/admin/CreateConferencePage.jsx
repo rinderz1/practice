@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 import { CONF_STATUS } from "../../constants/statuses";
 import { usersApi } from "../../services/api/usersApi";
 import { conferencesApi } from "../../services/api/conferencesApi";
 
 export default function CreateConferencePage() {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -44,9 +46,7 @@ export default function CreateConferencePage() {
     setError("");
 
     try {
-      // Get creator ID from localStorage as per instruction
-      const authData = JSON.parse(localStorage.getItem("conference_cms_auth"));
-      const creatorId = authData?.id;
+      const creatorId = currentUser?.id;
 
       if (!creatorId) {
         throw new Error("User not authenticated");

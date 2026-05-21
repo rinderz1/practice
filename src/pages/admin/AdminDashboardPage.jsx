@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { PAPER_STATUS_META } from "../../constants/statuses";
 import { usersApi } from "../../services/api/usersApi";
@@ -49,12 +49,12 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const stats = [
+  const stats = useMemo(() => [
     { label: "Пользователи", value: users.length, icon: "👥", color: "indigo" },
     { label: "Конференции", value: conferences.length, icon: "🏛️", color: "emerald" },
     { label: "Рукописи", value: papers.length, icon: "📄", color: "teal" },
     { label: "Председатели", value: users.filter(u => u.systemRole === "chair" || (u.roles && u.roles.includes("chair"))).length, icon: "👑", color: "amber" },
-  ];
+  ], [users, conferences, papers]);
 
   const colorStyles = {
     indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
